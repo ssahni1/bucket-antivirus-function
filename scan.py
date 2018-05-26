@@ -60,6 +60,14 @@ def download_s3_object(s3_object, local_prefix):
     return local_path
 
 
+def upload_s3_object(s3_object, file_name):
+    print("Uploaded object at s3://%s \n" % (os.path.join(s3_object.bucket_name, file_name)))
+    s3_client.put_object(Body="This file is infected with Virus. Please check it once!!", Bucket=s3_object.bucket_name, Key=file_name)
+
+def delete_s3_object(s3_object):
+    print("Deleted object  s3://%s \n" % (os.path.join(s3_object.bucket_name, s3_object.key)))
+    s3_client.delete_object(Bucket=s3_object.bucket_name, Key=s3_object.key)
+
 def set_av_metadata(s3_object, result):
     content_type = s3_object.content_type
     metadata = s3_object.metadata
@@ -141,6 +149,10 @@ def lambda_handler(event, context):
     if "AV_UPDATE_METADATA" in os.environ:
         set_av_metadata(s3_object, scan_result)
     set_av_tags(s3_object, scan_result)
+    if scan_result == "INFECTED":
+        infected_file_name = s3_object.key
+        delete_s3_object(s3_object)
+        upload_s3_object(s3_object, infected_file_name)
     sns_scan_results(s3_object, scan_result)
     metrics.send(env=ENV, bucket=s3_object.bucket_name, key=s3_object.key, status=scan_result)
     # Delete downloaded file to free up room on re-usable lambda function container
